@@ -30,8 +30,7 @@
                 id="mensagem-input"
                 placeholder="Cole aqui a mensagem suspeita ou o link que você recebeu. Exemplo: &quot;Você ganhou um prêmio! Clique aqui para resgatar...&quot;"
             ></textarea>
-                                    <!-- onclick="analisar()" -->
-            <button id="btn-analisar" type="submit">
+            <button id="btn-analisar" type="button" onclick="analisar()">
                 🔎 Verificar Agora
             </button>
         </form>
@@ -49,6 +48,7 @@
             <div id="resultado-icone"  class="resultado-icone"></div>
             <div id="resultado-titulo" class="resultado-titulo"></div>
             <div id="resultado-descricao" class="resultado-descricao"></div>
+            <div id="resultado-educacao" class="resultado-educacao"></div>
         </div>
     </div>
 
@@ -137,6 +137,13 @@
         tituloEl.className   = 'resultado-titulo ' + nivel;
 
         document.getElementById('resultado-descricao').textContent = data.descricao || 'Análise concluída.';
+        
+        const educacaoEl = document.getElementById('resultado-educacao');
+        if (data.educacao) {
+            educacaoEl.innerHTML = '<div style="margin-top: 20px; padding: 15px; background: #f8f9fa; border-left: 4px solid #17a2b8; border-radius: 4px;"><strong>📚 O que você precisa saber:</strong><p style="margin: 10px 0 0 0; color: #333; line-height: 1.6;">' + data.educacao + '</p></div>';
+        } else {
+            educacaoEl.innerHTML = '';
+        }
     }
 
         /* ── CARREGA alertas do banco ── */

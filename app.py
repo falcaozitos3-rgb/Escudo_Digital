@@ -75,10 +75,12 @@ def analisar():
     
     # Engenharia de Prompt: Blinda e força o Llama 3 a retornar uma estrutura JSON pura e limpa
     prompt = (
+        "Você é um especialista em segurança que explica termos técnicos de forma simples para pessoas sem conhecimento de tecnologia. "
         "Analise o seguinte texto e determine se é um golpe, phishing ou fraude. "
-        "Responda estritamente no formato JSON com duas chaves de letras minusculas: "
-        "'nivel' (valores possíveis: seguro, suspeito ou golpe) e "
-        "'descricao' (uma explicação curta em português do porquê dessa classificação).\n\n"
+        "Responda estritamente no formato JSON com TRÊS chaves de letras minúsculas: "
+        "'nivel' (valores possíveis: seguro, suspeito ou golpe), "
+        "'descricao' (explicação curta em português do porquê dessa classificação) e "
+        "'educacao' (se for suspeito ou golpe, explique em linguagem MUITO SIMPLES o que é phishing/golpe/fraude e por que este é um exemplo, use analogias do dia a dia).\n\n"
         f"Texto: {mensagem}"
     )
     
@@ -94,6 +96,7 @@ def analisar():
         resultado_ia = json.loads(completion.choices[0].message.content)
         nivel = resultado_ia.get('nivel', 'suspeito')
         descricao = resultado_ia.get('descricao', 'Análise inconclusiva.')
+        educacao = resultado_ia.get('educacao', '')
         
         # Cria e popula o novo registro no banco de dados SQLite unindo o texto e o veredito da IA
         novo_alerta = AnalisarGolpes(
@@ -105,7 +108,7 @@ def analisar():
         db.session.commit()
         
         # Devolve o resultado formatado para o JavaScript atualizar a tela do usuário na hora
-        return jsonify({'nivel': nivel, 'descricao': descricao})
+        return jsonify({'nivel': nivel, 'descricao': descricao, 'educacao': educacao})
         
     except Exception as e:
         # Se a conexão falhar ou a API cair, evita tela preta e retorna o erro com código HTTP 500

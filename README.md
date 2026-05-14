@@ -24,7 +24,22 @@ O frontend foi **totalmente desenvolvido com IA**, garantindo uma interface **si
 
 ## ⚠️ Status do Projeto
 
-Este projeto está em **desenvolvimento ativo** e contém algumas falhas que estamos resolvendo progressivamente. Novas features e correções são constantemente implementadas para melhorar a estabilidade e funcionalidade do sistema.
+### ✅ Funcionalidades Ativas
+
+- **IA Llama 3 Operacional** - Análise de textos em tempo real funcionando perfeitamente
+- **Análise com Explicações Educativas** - A IA agora explica o que é phishing, fraude e golpes em linguagem simples
+- **Banco de Dados Persistente** - Todas as análises são armazenadas corretamente
+- **Interface Amigável** - Frontend totalmente otimizado para pessoas sem conhecimento técnico
+
+### 🔨 Melhorias em Desenvolvimento
+
+- **Validação de Entrada Robusta** - Bloquear comandos injections que possam travar a IA
+- **Explicações Expandidas** - Detalhamento sobre:
+  - 🎣 O que é **Phishing** (engenharia social)
+  - 💰 O que é **Fraude** (roubo de informações)
+  - 🚨 O que é **Golpe** (esquema fraudulento)
+- **Rate Limiting** - Proteção contra abuso da API
+- **Sanitização de Inputs** - Remover caracteres perigosos antes de enviar à IA
 
 ## 🚀 Tecnologias
 
@@ -99,9 +114,12 @@ escudo_digital/
 1. Usuário submete um texto suspeito
 2. Flask recebe a requisição e valida os dados
 3. Prompt engineered é enviado ao Llama 3 via Groq
-4. IA retorna análise em formato JSON estruturado
+4. IA retorna análise em formato JSON estruturado com:
+   - **nivel** - Classificação (seguro, suspeito, golpe)
+   - **descricao** - Explicação técnica da análise
+   - **educacao** - Explicação em linguagem simples sobre o tipo de risco (phishing, fraude, etc)
 5. Resultado é armazenado no SQLite
-6. Frontend exibe o resultado com animação
+6. Frontend exibe o resultado com animação e caixa educativa
 
 ## ⚙️ Configuração da API Groq
 
@@ -117,10 +135,15 @@ GROQ_API_KEY=sua_chave_aqui
 
 ## 📝 Notas de Desenvolvimento
 
-- O projeto está em fase de desenvolvimento
-- Há bugs conhecidos sendo trabalhados
-- Melhorias contínuas são implementadas regularmente
-- Contribuições e feedback são bem-vindos
+- ✅ **Análise com IA funcionando** - Llama 3 processando e explicando ameaças
+- ✅ **Explicações educativas ativas** - Usuários recebem explicação simples
+- 🔨 **Em desenvolvimento:**
+  - Validação rigorosa para prevenir injection attacks
+  - Expansão de explicações sobre termos técnicos
+  - Limite de requisições (rate limiting)
+  - Sanitização de inputs perigosos
+  - Contribuições e feedback são bem-vindos
+- Mais pra frente será adicionado tambem sistema de geolocalização pra monitorar os casos em cada região.
 
 ## 📞 Contato
 

@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8" >
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Escudo Digital – Proteção Contra Golpes</title>
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;700;900&family=Lato:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+
+<header>
+    <div class="logo-icone">🛡️</div>
+    <h1>Escudo Digital</h1>
+    <p>Proteção gratuita contra golpes e fraudes.</p>
+    <p>Apoio governo da BA/Bahia</p>
+</header>
+
+<main>
+
+    <!-- ANALISADOR -->
+    <div class="card">
+        <form method="POST" action="/">
+            <h2>🔍 Analisar Mensagem ou Link</h2>
+            <p style="color:#5a6a8a; margin-bottom:14px; font-size:1rem;">
+                Cole abaixo a mensagem, link ou texto suspeito que você recebeu. Nossa IA irá verificar se é um golpe.
+            </p>
+            <textarea
+                name="mensagem"
+                id="mensagem-input"
+                placeholder="Cole aqui a mensagem suspeita ou o link que você recebeu. Exemplo: &quot;Você ganhou um prêmio! Clique aqui para resgatar...&quot;"
+            ></textarea>
+                                    <!-- onclick="analisar()" -->
+            <button id="btn-analisar" type="submit">
+                🔎 Verificar Agora
+            </button>
+        </form>
+    </div>
+
+    <!-- LOADING -->
+    <div id="loading">
+        <div class="spinner"></div>
+        <p>Analisando… aguarde um momento.</p>
+    </div>
+
+    <!-- RESULTADO -->
+    <div id="resultado" class="card" style="padding:0; overflow:hidden;">
+        <div id="resultado-box" class="resultado-box">
+            <div id="resultado-icone"  class="resultado-icone"></div>
+            <div id="resultado-titulo" class="resultado-titulo"></div>
+            <div id="resultado-descricao" class="resultado-descricao"></div>
+        </div>
+    </div>
+
+    <!-- DICAS -->
+    <div class="card">
+        <h2>💡 Dicas de Proteção</h2>
+        <div class="dicas-grid">
+            <div class="dica"><span class="dica-icone">📵</span><span>Nunca clique em links de mensagens não solicitadas.</span></div>
+            <div class="dica"><span class="dica-icone">🔐</span><span>Bancos nunca pedem senha pelo WhatsApp ou SMS.</span></div>
+            <div class="dica"><span class="dica-icone">⏸️</span><span>Desconfie de urgência: "Responda agora ou perde!"</span></div>
+            <div class="dica"><span class="dica-icone">👨‍👩‍👧</span><span>Na dúvida, pergunte a um familiar antes de agir.</span></div>
+        </div>
+    </div>
+
+    <!-- ALERTAS RECENTES -->
+    <div class="card">
+        <h2>🚨 Alertas Recentes na Região</h2>
+        <div id="lista-alertas">
+            <p style="color:#8898bb; font-size:.95rem;">Carregando alertas…</p>
+            {% if alertas %}
+                {% for alerta in alertas %}
+                <div style="background: white; padding: 15px; margin-bottom: 15px; border-left: 5px solid #ffc107; border-radius: 4px; color: #333;">
+                    <p style="margin: 0 0 5px 0;"><strong>trecho suspeito</strong> "{{ alerta.texto_suspeito}}"</p>
+                    <small style="color: #6c757d;">status do filtro: <strong style="color: #d9534f;">{{ alerta.resultado_ia}}</strong></small>
+                </div>
+                {% endfor %}
+            {% else %}
+                <p style="color: #888; font-size: 0.95rem; text-align: center;">Nenhum golpe registrado no banco local até o momento.</p> 
+            {% endif %}
+        </div>
+    </div>
+
+</main>
+
+<footer>
+    Escudo Digital &nbsp;·&nbsp; Feira de Ciências da Bahia &nbsp;·&nbsp; Desenvolvido para proteger a comunidade
+</footer>
+
+<script>
+        /* ── ANALISA mensagem via back-end Flask ── */
+        async function analisar() {
+            const input = document.getElementById('mensagem-input').value.trim();
+            if (!input) {
+            alert('Por favor, cole uma mensagem ou link antes de verificar.');
+            return;
+        }
+
+        mostrar('loading');
+        esconder('resultado');
+
+        try {
+            const resp = await fetch('/analisar', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ mensagem: input })
+            });
+            const data = await resp.json();
+            exibirResultado(data);
+            carregarAlertas();
+        } catch (e) {
+            esconder('loading');
+            alert('Não foi possível conectar ao servidor. Tente novamente.');
+        }
+    }
+
+    /* ── EXIBE resultado ── */
+    function exibirResultado(data) {
+        esconder('loading');
+        mostrar('resultado');
+
+        const nivel = data.nivel || 'suspeito';
+        const icones = { seguro: '✅', suspeito: '⚠️', golpe: '🚨' };
+        const titulos = {
+            seguro:   'Parece seguro',
+            suspeito: 'Atenção! Pode ser suspeito',
+            golpe:    'CUIDADO! Isso é um golpe!'
+        };
+
+        const box = document.getElementById('resultado-box');
+        box.className = 'resultado-box ' + nivel;
+
+        document.getElementById('resultado-icone').textContent = icones[nivel];
+
+        const tituloEl = document.getElementById('resultado-titulo');
+        tituloEl.textContent = titulos[nivel];
+        tituloEl.className   = 'resultado-titulo ' + nivel;
+
+        document.getElementById('resultado-descricao').textContent = data.descricao || 'Análise concluída.';
+    }
+
+        /* ── CARREGA alertas do banco ── */
+        async function carregarAlertas() {
+            try {
+                const resp = await fetch('/alertas');
+                const lista = await resp.json();
+                const el = document.getElementById('lista-alertas');
+
+                if (!lista.length) {
+                    el.innerHTML = '<p style="color:#8898bb;font-size:.95rem;">Nenhum alerta registrado ainda.</p>';
+                    return;
+            }
+
+            el.innerHTML = lista.map(a => `
+                <div class="alerta-item">
+                    <span class="alerta-badge">🚨 ${a.tipo || 'Golpe'}</span>
+                    <div>
+                        <div class="alerta-texto">${a.resumo}</div>
+                        <div class="alerta-data">${a.data}</div>
+                    </div>
+                </div>
+            `).join('');
+        } catch {
+            document.getElementById('lista-alertas').innerHTML =
+                '<p style="color:#8898bb;font-size:.95rem;">Não foi possível carregar os alertas.</p>';
+        }
+    }
+
+  /* ── helpers ── */
+    function mostrar(id) { document.getElementById(id).style.display = 'block'; }
+    function esconder(id) { document.getElementById(id).style.display = 'none'; }
+
+    carregarAlertas();
+</script>
+
+</body>
+</html>

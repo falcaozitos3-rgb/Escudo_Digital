@@ -143,7 +143,8 @@ GROQ_API_KEY=sua_chave_aqui
   - Limite de requisições (rate limiting)
   - Sanitização de inputs perigosos
   - Contribuições e feedback são bem-vindos
-- Mais pra frente será adicionado tambem sistema de geolocalização pra monitorar os casos em cada região.
+  - Mais pra frente será adicionado tambem sistema de lolalização por IP pra monitorar os casos em cada região.
+-codifiicação do codigo
 
 ## 📞 Contato
 

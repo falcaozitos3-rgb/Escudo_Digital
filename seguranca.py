@@ -136,7 +136,15 @@ def construir_prompt_seguro(conteudo_usuario, eh_link=False):
         "na conta ou transações suspeitas. Se o texto contiver desculpas como 'não tenho acesso\n"
         " aos seus dados' ou pedir para clicar em um link para atualizar o cadastro, classifique\n "
         "IMEDIATAMENTE como SUSPEITO. Explique ao usuário de forma acolhedora que gerentes de verdade\n "
-        "nunca usam redes sociais ou links alternativos para corrigir erros de sistema."
+        "nunca usam redes sociais ou links alternativos para corrigir erros de sistema.\n"
+        "\n"
+        "ATENÇÂO CRUCIAL: \n"
+        " Mensagems de cobraça reais de operadoras (claro, TIM, vivo, oi, e etc) bancos reais em geral que não apresentam links \n"
+        " maliciosos e apenas avisem e apenas avisem sobre faturas atrasadas NÃO DEVEM ser marcadas como GOLPE. \n"
+        "Se for uma cobrança real de conta atrasada, explique de forma acolhedora que o usuário deve verificar \n"
+        "o aplicativo oficial da empresa ou ligar no número impresso atrás do modem/cartão para confirmar, \n"
+        "mas não rotule como fraude se o link indicado for o oficial da operadora (ex: claro.com.br)."
+        
     )
     
     # Tipo de análise baseado no conteúdo
@@ -286,6 +294,53 @@ def detectar_link_clonado_banco(texto):
         'motivo': None
     }
 
+# =============================================================================
+# verificação de segurança de cobranças de operadoras 
+# =============================================================================
+
+def verificacao_das_operadoras_oficial(texto):
+    """
+    VERIFICAÇÃO DE OPERADORAS OFICIAIS QUE POSUEM CARACTERÍSTICAS DE CANAIS OFICIAIS DE COBRANÇA, COMO CLARO, VIVO, TIM E OI.
+    PARA EVITAR FALSA POSITIVIVOS DE FRAUDES.
+    """
+    texto_maiusculo = texto.lower()
+
+
+    operadoras_oficial =  {
+        "claro": ["claro.com.br", "://claro.com"],
+        "vivo": ["vivo.com.br", "://vivo.com"],
+        "tim": ["tim.com.br", "://tim.com"],
+        "oi": ["oi.com.br", "://oi.com"]
+    }
+
+
+    # se o remetente for um SMS curto oficial, não é golpe  (ex: *555#, +6900, 1058, 1059)
+    remetente = texto.split()[0] if texto else ""
+    if remetente and len(remetente) <= 6 and remetente.isdigit():
+        return False, "Remetente oficial de SMS curto detectado, provavelmente não é golpe"
+
+    # captura de links oficiais das operadoras
+    urls = re.findall(r'(https?://[^\s]+)', texto_maiusculo)
+
+    for operadora, dominios in operadoras_oficial.items():
+        if operadora in texto_maiusculo:
+            # se tem link na mensagem, verifica se é um link oficial da operadora
+            if urls:
+                for url in urls:
+                    if any(dom_real in url for dom_real in dominios):
+                        return False, f"Link oficial da operadora {operadora.upper()} detectado, provavelmente não é golpe"
+                    
+            else:
+                #se não tem link e cita apenas para regularizar em canais oficiais.
+                if "fatura" in texto_maiusculo or "vencida" in texto_maiusculo:
+                    return True, f"cobraça ou aviso com caracteristicas legitimas da {operadora.upper()}"
+                
+    return False, ""
+
+
+# ==============================================================================
+# fim do codigo das operadoras
+# ==============================================================================
 
 # ==============================================================================
 #  RESUMO DAS PROTEÇÕES

@@ -8,7 +8,10 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
-
+<div class="acessibilidade-container">
+    <button id="btn-aumentar" title="Aumentar texto">➕ Aumentar Letra</button>
+    <button id="btn-diminuir" title="Diminuir texto">➖ Diminuir Letra</button>
+</div>
 <header>
     <div class="logo-icone">🛡️</div>
     <h1>Escudo Digital</h1>
@@ -20,7 +23,7 @@
 
     <!-- ANALISADOR -->
     <div class="card">
-        <form method="POST" action="/">
+        <form method="POST" action="/" id="form-fraude">
             <h2>🔍 Analisar Mensagem ou Link</h2>
             <p style="color:#5a6a8a; margin-bottom:14px; font-size:1rem;">
                 Cole abaixo a mensagem, link ou texto suspeito que você recebeu. Nossa IA irá verificar se é um golpe.
@@ -30,6 +33,8 @@
                 id="mensagem-input"
                 placeholder="Cole aqui a mensagem suspeita ou o link que você recebeu. Exemplo: &quot;Você ganhou um prêmio! Clique aqui para resgatar...&quot;"
             ></textarea>
+            <!-- Campo oculto que vai armazenar o IP real capturado pelo JavaScript -->
+            <input type="hidden" name="ip_real" id="ip_real">
             <button id="btn-analisar" type="button" onclick="analisar()">
                 🔎 Verificar Agora
             </button>
@@ -45,10 +50,13 @@
     <!-- RESULTADO -->
     <div id="resultado" class="card" style="padding:0; overflow:hidden;">
         <div id="resultado-box" class="resultado-box">
+            <button onclick="ouvirResposta()">🔊 Ouvir Resposta</button>
             <div id="resultado-icone"  class="resultado-icone"></div>
             <div id="resultado-titulo" class="resultado-titulo"></div>
             <div id="resultado-descricao" class="resultado-descricao"></div>
             <div id="resultado-educacao" class="resultado-educacao"></div>
+            <button onclick="compartilharWhatsApp(event)" class="btn-whatsapp">Compartilhar no WhatsApp</button>
+
         </div>
     </div>
 
@@ -65,14 +73,17 @@
 
     <!-- ALERTAS RECENTES -->
     <div class="card">
-        <h2>🚨 Alertas Recentes na Região</h2>
+        <h2>🚨 Alertas Recentes na Sua Região</h2>
+        <div id="info-localizacao" class="info-localizacao">
+            <span id="localizacao-texto" style="color: #8898bb; font-size: 0.95rem;">Detectando sua região...</span>
+        </div>
         <div id="lista-alertas">
             <p style="color:#8898bb; font-size:.95rem;">Carregando alertas…</p>
             {% if alertas %}
                 {% for alerta in alertas %}
                 <div style="background: white; padding: 15px; margin-bottom: 15px; border-left: 5px solid #ffc107; border-radius: 4px; color: #333;">
-                    <p style="margin: 0 0 5px 0;"><strong>trecho suspeito</strong> "{{ alerta.texto_suspeito}}"</p>
-                    <small style="color: #6c757d;">status do filtro: <strong style="color: #d9534f;">{{ alerta.resultado_ia}}</strong></small>
+                    <p style="margin: 0 0 5px 0;"><strong>Trecho suspeito:</strong> "{{ alerta.texto_suspeito}}"</p>
+                    <small style="color: #6c757d;">Status: <strong style="color: #d9534f;">{{ alerta.resultado_ia}}</strong></small>
                 </div>
                 {% endfor %}
             {% else %}
@@ -88,6 +99,38 @@
 </footer>
 
 <script>
+        /* ── CAPTURA IP PÚBLICO DO USUÁRIO ── */
+        fetch('https://ipify.org?format=json')
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById('ip_real').value = data.ip;
+                console.log("✅ IP público capturado: " + data.ip);
+            })
+            .catch(error => {
+                console.error('⚠️ Erro ao obter IP público:', error);
+                document.getElementById('ip_real').value = 'indisponível';
+            });
+
+        /* ── DETECTA localização do usuário ── */
+        async function carregarLocalizacao() {
+            try {
+                const resp = await fetch('/localizacao');
+                const data = await resp.json();
+                
+                if (data.estado && data.estado !== 'Desconhecido') {
+                    document.getElementById('localizacao-texto').innerHTML = 
+                        `📍 <strong>${data.cidade}, ${data.estado}</strong> — Alertas desta região:`;
+                } else {
+                    document.getElementById('localizacao-texto').innerHTML = 
+                        '📍 <strong>Localização detectada</strong> — Alertas desta região:';
+                }
+            } catch (e) {
+                console.log('Não foi possível detectar localização');
+                document.getElementById('localizacao-texto').innerHTML = 
+                    '📍 <strong>Sua região</strong> — Alertas desta região:';
+            }
+        }
+
         /* ── ANALISA mensagem via back-end Flask ── */
         async function analisar() {
             const input = document.getElementById('mensagem-input').value.trim();
@@ -177,8 +220,98 @@
     function mostrar(id) { document.getElementById(id).style.display = 'block'; }
     function esconder(id) { document.getElementById(id).style.display = 'none'; }
 
+    carregarLocalizacao();
     carregarAlertas();
-</script>
 
+    /* ── CONTROLE DE ACESSIBILIDADE ── */
+    document.getElementById('btn-aumentar').addEventListener('click', function() {
+        let tamanho = parseFloat(localStorage.getItem('tamanho-fonte')) || 16;
+        tamanho = Math.min(tamanho + 2, 24);
+        document.body.style.fontSize = tamanho + 'px';
+        localStorage.setItem('tamanho-fonte', tamanho);
+        console.log('Fonte aumentada para: ' + tamanho + 'px');
+    });
+
+    document.getElementById('btn-diminuir').addEventListener('click', function() {
+        let tamanho = parseFloat(localStorage.getItem('tamanho-fonte')) || 16;
+        tamanho = Math.max(tamanho - 2, 12);
+        document.body.style.fontSize = tamanho + 'px';
+        localStorage.setItem('tamanho-fonte', tamanho);
+        console.log('Fonte diminuida para: ' + tamanho + 'px');
+    });
+
+    const tamanhoSalvo = localStorage.getItem('tamanho-fonte');
+    if (tamanhoSalvo) {
+        document.body.style.fontSize = tamanhoSalvo + 'px';
+    }
+
+function ouvirResposta() {
+    // 1. Pega os textos do título, descrição e educação para ler o pacote completo
+    const titulo = document.getElementById('resultado-titulo')?.innerText || "";
+    const descricao = document.getElementById('resultado-descricao')?.innerText || "";
+    const educacao = document.getElementById('resultado-educacao')?.innerText || "";
+    
+    // Junta tudo em um texto corrido para a IA falar
+    const textoCompleto = `${titulo}. ${descricao}. ${educacao}`.trim();
+    
+    // 2. Validação de segurança: se o Llama 3 ainda não respondeu, avisa o usuário
+    if (!descricao || textoCompleto.length < 5) {
+        alert("⚠️ O Escudo Digital ainda não tem um resultado para ler. Cole um texto e clique em Verificar primeiro!");
+        return;
+    }
+    
+    // 3. Cancela qualquer voz que esteja tocando antes (para não encavalar o áudio se clicar duas vezes)
+    window.speechSynthesis.cancel();
+    
+    // 4. Cria o objeto de fala do navegador
+    const fala = new SpeechSynthesisUtterance(textoCompleto);
+    fala.lang = 'pt-BR'; // Força o idioma para português do Brasil
+    fala.rate = 0.95;    // Velocidade levemente mais lenta para idosos entenderem bem
+    fala.pitch = 1.0;   // Tom de voz normal
+    
+    // 5. Executa a fala
+    window.speechSynthesis.speak(fala);
+}
+
+function compartilharWhatsApp(e) {
+
+    if (e) e.preventDefault(); // Previne comportamento padrão se for um evento de clique
+    // Busca os elementos um por um direto do HTML
+    const elementoTitulo = document.getElementById('resultado-titulo');
+    const elementoDescricao = document.getElementById('resultado-descricao');
+    const elementoEducacao = document.getElementById('resultado-educacao');
+
+    // Extrai o texto interno deles (se não existirem, usa texto vazio)
+    const textoTitulo = elementoTitulo ? elementoTitulo.innerText : "";
+    const textoDescricao = elementoDescricao ? elementoDescricao.innerText : "";
+    const textoEducacao = elementoEducacao ? elementoEducacao.innerText : "";
+    
+    // Validação de segurança: impede o envio se a IA ainda não tiver colocado conteúdo
+    if (!textoDescricao || textoDescricao.trim() === "") {
+        alert("⚠️ Não há nenhuma análise para compartilhar ainda!");
+        return;
+    }
+    
+    // Montagem da mensagem estruturada para o WhatsApp usando as variáveis corretas
+    const mensagem = 
+        `🚨 *AVISO DE SEGURANÇA: Cuidado com Golpes!* 🚨\n\n` +
+        `Pessoal, usei a Inteligência Artificial do *Escudo Digital* para analisar uma mensagem suspeita e o diagnóstico foi:\n\n` +
+        `📌 *VEREDITO:* ${textoTitulo.toUpperCase()}\n` +
+        `🔍 *EXPLICAÇÃO:* ${textoDescricao}\n\n` +
+        `💡 *DICA IMPORTANTE:* ${textoEducacao}\n\n` +
+        `❌ Não clique em links desconhecidos e não passe seus dados para ninguém! Vamos proteger nossa família. ❤️`;
+    // Codifica o texto para formato de URL válida
+    const textoCodificado = encodeURIComponent(mensagem);
+    
+    // Para:
+    const linkZap = `https://api.whatsapp.com/send?text=${encodeURIComponent(mensagem)}`;
+
+    console.log(linkZap);
+
+    // Abre a aba do WhatsApp
+    window.open(linkZap, '_blank');
+}
+
+</script>
 </body>
 </html>

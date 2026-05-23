@@ -484,48 +484,28 @@ Ganho real exige trabalho e tempo.
 
 ---
 
-## 📈 Próximas Melhorias
+## 📈 Posiveis Melhorias que podera ser feitas mais pra frente com apoio de uma equipe 
 
 - [ ] **Rate Limiting** - Proteção contra DDoS (máx 10 req/min por IP)
 - [ ] **CAPTCHA** - Proteção contra bots
 - [ ] **Dashboard Admin** - Estatísticas por região/tipo de golpe
 - [ ] **Mapa Interativo** - Visualizar golpes em tempo real
 - [ ] **Sistema de Feedback** - Usuários confirmam se foi golpe ou não
-- [ ] **Histórico Pessoal** - Usuário vê suas análises antigas
 - [ ] **Notificações** - Alertas de novos padrões de fraude
-- [ ] **Integração WhatsApp/Telegram** - Analisar direto do chat
 
 ---
 
 ## 🤝 Contribuindo
-
-Este é um projeto **open-source** e contribuições são bem-vindas!
-
-### Como Contribuir
-
-1. Faça um **fork** do projeto
-2. Crie uma **branch** para sua feature:
-   ```bash
-   git checkout -b feature/nova-protecao
-   ```
-3. **Commit** suas mudanças:
-   ```bash
-   git commit -m "Add: Proteção contra [tipo de fraude]"
-   ```
-4. **Push** para a branch:
-   ```bash
-   git push origin feature/nova-protecao
-   ```
-5. Abra um **Pull Request**
-
+infelismente não temos, caso  projeto saia bem contribuição podera ser feitas
+esse projeto tambem podera ser **open-source**
 ---
 
 ## 📞 Suporte e Contato
 
 - 🐛 **Encontrou um bug?** - Abra uma [Issue](https://github.com/seu-usuario/escudo_digital/issues)
 - 💡 **Sugestão de feature?** - Comente em uma discussão
-- 📧 **Email:** [adicione seu email aqui]
-- 🌐 **Twitter/X:** [@seu_usuario]
+- 📧 **Email:** [evariso@gmail.com]
+- 🌐 **instagram:** [@evaris_o]
 
 ---
 
@@ -545,15 +525,14 @@ Desenvolvido com ❤️ para a **Feira de Ciências da Bahia 2026**
 - SQLAlchemy + SQLite
 - HTML5 + CSS3 + JavaScript
 
-**Inspirado em:**
-- [OWASP Top 10](https://owasp.org/www-project-top-ten/)
-- [CWE/SANS Top 25](https://cwe.mitre.org/top25/)
-- [Safernet Brasil](https://www.safernet.org.br/)
-
+**as inspirações**
+elas vieram de algums canais que assito na plataforma Youtuber
+[inv3ção] canal que mostra engenharia social contra golpistas
+[canais_gringos] muitos canais gringos fazem esse tipo de conteudo que gosto muito de assitir, pos gosto de cibersegurança. 
 ---
 
-**Versão:** 2.0 🚀  
-**Última atualização:** Maio 2026  
+**Versão:** 3.0.0 
+**Última atualização:** 22/05/2026  
 **Status:** ✅ Pronto para Produção
 
 **"Protegendo o Brasil, um clique por vez"** 🛡️

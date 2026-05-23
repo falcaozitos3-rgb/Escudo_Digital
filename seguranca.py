@@ -79,9 +79,11 @@ def construir_prompt_seguro(conteudo_usuario, eh_link=False):
         "Fique atento a mensagens onde alguém finge ser 'gerente' ou 'atendente' de bancos como Bradesco ou Santander. "
         "Se pedir para clicar em um link para atualizar o cadastro, classifique IMEDIATAMENTE como GOLPE.\n\n"
         "ATENÇÃO CRUCIAL:\n"
-        "Mensagens de cobrança reais de operadoras (Claro, TIM, Vivo, Oi) ou bancos legítimos que não apresentam links "
-        "maliciosos e apenas avisem sobre faturas atrasadas NÃO DEVEM ser marcadas como GOLPE. "
-        "Explique de forma acolhedora que o usuário deve verificar o app oficial ou ligar no número oficial da empresa."
+        "Mensagens de cobrança reais de operadoras (Claro, TIM, Vivo, Oi) ou bancos reais em geral "
+        "que não apresentem links maliciosos e apenas avisem sobre faturas atrasadas NÃO DEVEM ser marcadas como GOLPE. "
+        "Se for uma cobrança real de conta atrasada, explique de forma acolhedora que o usuário deve verificar "
+        "o aplicativo oficial da empresa ou ligar no número impresso atrás do modem/cartão para confirmar."
+
     )
     
     tipo_analise = "LINK/URL" if eh_link else "MENSAGEM DE TEXTO"
@@ -160,7 +162,7 @@ def detectar_link_clonado_banco(texto):
 def verificacao_das_operadoras_oficial(texto):
     """
     FUNÇÃO 6: FILTRO ANTIFALSO POSITIVO DE OPERADORAS
-    Identifica se a mensagem possui traços de canais legítimos da Claro, TIM, Vivo ou Oi.
+    Retorna True se for um canal ou link oficial, poupando a IA de dar falsos positivos.
     """
     texto_lower = texto.lower()
     operadoras_oficiais = {
@@ -170,11 +172,12 @@ def verificacao_das_operadoras_oficial(texto):
         "oi": ["oi.com.br", "oi.com"]
     }
 
-    # Proteção para o remetente de SMS curto (evita crash se a primeira palavra não for número)
+    # 1. Valida SMS curto oficial (ex: 1052, 4119)
     try:
         primeira_palavra = texto.split()[0] if texto else ""
         if primeira_palavra and len(primeira_palavra) <= 6 and primeira_palavra.isdigit():
-            return "oficial", "Remetente oficial de SMS curto detectado. Canal seguro de operadora."
+            # RETORNA TRUE para o Flask saber que entrou no filtro oficial
+            return True, "Mensagem enviada por um canal oficial de SMS da sua operadora."
     except Exception:
         pass
 
@@ -182,14 +185,14 @@ def verificacao_das_operadoras_oficial(texto):
 
     for operadora, dominios in operadoras_oficiais.items():
         if operadora in texto_lower:
-            # Se tem link, valida se aponta para o site real da operadora
+            # 2. Se tem link, valida se aponta para o site real da operadora
             if urls:
                 for url in urls:
                     if any(dom_real in url for dom_real in dominios):
-                        return "oficial", f"Link oficial da operadora {operadora.upper()} verificado."
+                        return True, f"Link oficial da operadora {operadora.upper()} verificado com sucesso no banco local."
             else:
-                # Se não tem link e é aviso apenas informativo de fatura
-                if "fatura" in texto_lower or "vencida" in texto_lower or "boleto" in texto_lower:
-                    return "legitimo", f"Cobrança ou aviso com características legítimas da operadora {operadora.upper()}."
+                # 3. Se não tem link e é apenas informativo de fatura vencida
+                if "fatura" in texto_lower or "vencida" in texto_lower or "boleto" in texto_lower or "pagamento" in texto_lower:
+                    return True, f"Aviso de cobrança ou fatura com características totalmente legítimas da {operadora.upper()}."
                 
     return False, ""

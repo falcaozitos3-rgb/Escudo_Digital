@@ -34,7 +34,6 @@
                 placeholder="Cole aqui a mensagem suspeita ou o link que você recebeu. Exemplo: &quot;Você ganhou um prêmio! Clique aqui para resgatar...&quot;"
             ></textarea>
             <!-- Campo oculto que vai armazenar o IP real capturado pelo JavaScript -->
-            <input type="hidden" name="ip_real" id="ip_real">
             <button id="btn-analisar" type="button" onclick="analisar()">
                 🔎 Verificar Agora
             </button>
@@ -50,12 +49,22 @@
     <!-- RESULTADO -->
     <div id="resultado" class="card" style="padding:0; overflow:hidden;">
         <div id="resultado-box" class="resultado-box">
-            <button onclick="ouvirResposta()">🔊 Ouvir Resposta</button>
             <div id="resultado-icone"  class="resultado-icone"></div>
             <div id="resultado-titulo" class="resultado-titulo"></div>
             <div id="resultado-descricao" class="resultado-descricao"></div>
             <div id="resultado-educacao" class="resultado-educacao"></div>
-            <button onclick="compartilharWhatsApp(event)" class="btn-whatsapp">Compartilhar no WhatsApp</button>
+            
+                <!--Botoes de ação compartilhar/ouvir-->
+            <div class="resultado-acoes">
+                <button onclick="compartilharWhatsApp(event)" class="btn-acao btn-whatsapp" title="Compartilhar no WhatsApp">
+                    Compartilhar no WhatsApp
+                </button>
+                
+                <button onclick="ouvirResposta()" class="btn-acao btn-voz" title="Ouvir texto em voz alta">
+                    🔊 Ouvir Resposta
+                </button>
+
+            </div>
 
         </div>
     </div>
@@ -99,38 +108,6 @@
 </footer>
 
 <script>
-        /* ── CAPTURA IP PÚBLICO DO USUÁRIO ── */
-        fetch('https://ipify.org?format=json')
-            .then(response => response.json())
-            .then(data => {
-                document.getElementById('ip_real').value = data.ip;
-                console.log("✅ IP público capturado: " + data.ip);
-            })
-            .catch(error => {
-                console.error('⚠️ Erro ao obter IP público:', error);
-                document.getElementById('ip_real').value = 'indisponível';
-            });
-
-        /* ── DETECTA localização do usuário ── */
-        async function carregarLocalizacao() {
-            try {
-                const resp = await fetch('/localizacao');
-                const data = await resp.json();
-                
-                if (data.estado && data.estado !== 'Desconhecido') {
-                    document.getElementById('localizacao-texto').innerHTML = 
-                        `📍 <strong>${data.cidade}, ${data.estado}</strong> — Alertas desta região:`;
-                } else {
-                    document.getElementById('localizacao-texto').innerHTML = 
-                        '📍 <strong>Localização detectada</strong> — Alertas desta região:';
-                }
-            } catch (e) {
-                console.log('Não foi possível detectar localização');
-                document.getElementById('localizacao-texto').innerHTML = 
-                    '📍 <strong>Sua região</strong> — Alertas desta região:';
-            }
-        }
-
         /* ── ANALISA mensagem via back-end Flask ── */
         async function analisar() {
             const input = document.getElementById('mensagem-input').value.trim();
@@ -220,9 +197,6 @@
     function mostrar(id) { document.getElementById(id).style.display = 'block'; }
     function esconder(id) { document.getElementById(id).style.display = 'none'; }
 
-    carregarLocalizacao();
-    carregarAlertas();
-
     /* ── CONTROLE DE ACESSIBILIDADE ── */
     document.getElementById('btn-aumentar').addEventListener('click', function() {
         let tamanho = parseFloat(localStorage.getItem('tamanho-fonte')) || 16;
@@ -246,31 +220,40 @@
     }
 
 function ouvirResposta() {
-    // 1. Pega os textos do título, descrição e educação para ler o pacote completo
     const titulo = document.getElementById('resultado-titulo')?.innerText || "";
     const descricao = document.getElementById('resultado-descricao')?.innerText || "";
     const educacao = document.getElementById('resultado-educacao')?.innerText || "";
     
-    // Junta tudo em um texto corrido para a IA falar
     const textoCompleto = `${titulo}. ${descricao}. ${educacao}`.trim();
     
-    // 2. Validação de segurança: se o Llama 3 ainda não respondeu, avisa o usuário
     if (!descricao || textoCompleto.length < 5) {
-        alert("⚠️ O Escudo Digital ainda não tem um resultado para ler. Cole um texto e clique em Verificar primeiro!");
+        alert("⚠️ O Escudo Digital ainda não tem um resultado para ler.");
         return;
     }
     
-    // 3. Cancela qualquer voz que esteja tocando antes (para não encavalar o áudio se clicar duas vezes)
+    // Para qualquer áudio que esteja tocando ou travado na fila
     window.speechSynthesis.cancel();
     
-    // 4. Cria o objeto de fala do navegador
     const fala = new SpeechSynthesisUtterance(textoCompleto);
-    fala.lang = 'pt-BR'; // Força o idioma para português do Brasil
-    fala.rate = 0.95;    // Velocidade levemente mais lenta para idosos entenderem bem
-    fala.pitch = 1.0;   // Tom de voz normal
+    fala.lang = 'pt-BR';
     
-    // 5. Executa a fala
+    // 🛠️ CALIBRAÇÃO DE VELOCIDADE: 
+    // 0.85 força o Firefox a falar em um ritmo mais calmo e humano
+    fala.rate = 0.85; 
+    fala.pitch = 1.0; // Tom de voz normal
+    
+    // Tenta capturar as vozes do Linux/Firefox em segundo plano
+    const vozes = window.speechSynthesis.getVoices();
+    const vozPT = vozes.find(v => v.lang === 'pt-BR' || v.lang.includes('pt_BR'));
+    if (vozPT) {
+        fala.voice = vozPT;
+    }
+    
+    // Executa a fala
     window.speechSynthesis.speak(fala);
+    console.log("[audio] sintetizando voz para! ");
+    console.log(`velocidade configurada: ${fala.rate}`);
+    console.log(`texto enviado para o motor de voz: ${textoCompleto}`);
 }
 
 function compartilharWhatsApp(e) {

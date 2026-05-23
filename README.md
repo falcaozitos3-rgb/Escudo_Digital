@@ -528,7 +528,7 @@ Desenvolvido com ❤️ para a **Feira de Ciências da Bahia 2026**
 **as inspirações**
 elas vieram de algums canais que assito na plataforma Youtuber
 [inv3ção] canal que mostra engenharia social contra golpistas
-[canais_gringos] muitos canais gringos fazem esse tipo de conteudo que gosto muito de assitir, pos gosto de cibersegurança. 
+[canais_gringos] muitos canais gringos fazem esse tipo de conteudo que gosto muito de assitir, pois gosto de cibersegurança. 
 ---
 
 **Versão:** 3.0.0 

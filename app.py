@@ -13,9 +13,14 @@ from groq import Groq
 # Importa as ferramentas de banco de dados do seu arquivo separado 'banco_dados.py'
 from banco_dados import db, AnalisarGolpes, inicializar_banco
 
+# IMPORTA FUNÇÕES DE SEGURANÇA do arquivo 'seguranca.py'
+# Essas funções protegem contra SQL Injection, Prompt Injection, e Buffer Overflow
+from seguranca import input_e_seguro, construir_prompt_seguro, eh_link, validar_resposta_ia, verificacao_das_operadoras_oficial
+
 # Importa bibliotecas nativas do Python para gerenciar o sistema e ler formatos JSON
 import os
 import json
+import requests
 
 # Carrega as variáveis de ambiente do arquivo .env
 load_dotenv()
@@ -26,8 +31,12 @@ load_dotenv()
 # Inicializa o servidor web principal do Flask
 app = Flask(__name__)
 
+# Garante que o Flask envie os acentos em português corretamente para o navegador
+app.config['JSON_AS_ASCII'] = False
+
 # Configura o caminho absoluto exato para o banco SQLite dentro da sua pasta de trabalho
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:////./home/evaristo/escudo_digital/golpes.db'
+BASE_DIR = os.path.abspath(os.path.dirname(__file__))
+app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{os.path.join(BASE_DIR, "instance", "golpes.db")}'
 
 # Desativa o monitoramento de modificações para economizar memória RAM no seu Celeron
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False 
@@ -41,89 +50,139 @@ client = Groq()
 # ==============================================================================
 #  ROTA 1: PÁGINA PRINCIPAL DO SITE (MÉTODO GET E POST)
 # ==============================================================================
-# Rota raiz que entrega o site bonito do Claude e processa envios tradicionais de formulário
 @app.route('/', methods=['GET', 'POST'])
 def index():
-    # Verifica se o usuário enviou algum dado através do formulário clássico
     if request.method == 'POST':
         texto_recebido = request.form.get('mensagem')
 
-        # Se houver texto, salva temporariamente no banco (fluxo básico de segurança)
         if texto_recebido:
             novo_alerta = AnalisarGolpes(texto_suspeito=texto_recebido)
             db.session.add(novo_alerta)
             db.session.commit()
             print(f"[BANCO DE DADOS] Salvo com êxito! {texto_recebido}")
 
-    # Fora do bloco IF (roda tanto no GET quanto no POST) para listar os alertas na tela
     alertas_registrados = AnalisarGolpes.query.order_by(AnalisarGolpes.id.desc()).all()
     return render_template('index.html', alertas=alertas_registrados)
 
 # ==============================================================================
 #  ROTA 2: API DE ANÁLISE COMPLETA VIA IA LLAMA 3 (MÉTODO POST VIA JAVASCRIPT)
 # ==============================================================================
-# Rota usada pelo JavaScript do Claude para rodar a animação de análise sem travar a tela
 @app.route('/analisar', methods=['POST'])
 def analisar():
-    # Captura os dados no formato JSON enviados pelo JavaScript de fundo da página
-    data = request.get_json()
-    mensagem = data.get('mensagem', '').strip()
-    
-    # Validação básica de cibersegurança: rejeita envios vazios antes de gastar cota da IA
-    if not mensagem:
-        return jsonify({'nivel': 'seguro', 'descricao': 'Nenhuma mensagem enviada.'}), 400
-    
-    # Engenharia de Prompt: Blinda e força o Llama 3 a retornar uma estrutura JSON pura e limpa
-    prompt = (
-        "Você é um especialista em segurança que explica termos técnicos de forma simples para pessoas sem conhecimento de tecnologia. "
-        "Analise o seguinte texto e determine se é um golpe, phishing ou fraude. "
-        "Responda estritamente no formato JSON com TRÊS chaves de letras minúsculas: "
-        "'nivel' (valores possíveis: seguro, suspeito ou golpe), "
-        "'descricao' (explicação curta em português do porquê dessa classificação) e "
-        "'educacao' (se for suspeito ou golpe, explique em linguagem MUITO SIMPLES o que é phishing/golpe/fraude e por que este é um exemplo, use analogias do dia a dia).\n\n"
-        f"Texto: {mensagem}"
-    )
-    
+    """
+    ROTA DE ANÁLISE COM FILTRO LOCAL + IA
+    """
     try:
-        # Dispara a requisição em nuvem para o modelo Llama 3 mais rápido e preciso da Groq
-        completion = client.chat.completions.create(
-            model="llama-3.3-70b-versatile",
-            messages=[{"role": "user", "content": prompt}],
-            response_format={"type": "json_object"}
-        )
+        data = request.get_json()
+        mensagem = data.get('mensagem', '').strip()
+        ip_real = data.get('ip_real', '')
         
-        # Converte a resposta em texto cru enviada pela IA em um dicionário Python tratável
-        resultado_ia = json.loads(completion.choices[0].message.content)
-        nivel = resultado_ia.get('nivel', 'suspeito')
-        descricao = resultado_ia.get('descricao', 'Análise inconclusiva.')
-        educacao = resultado_ia.get('educacao', '')
+        # PASSO 1: SANITIZAÇÃO - Valida se o input é seguro
+        if not data or not mensagem:
+            return jsonify({'nivel': 'erro', 'descricao': 'Nenhuma mensagem enviada.'}), 400
         
-        # Cria e popula o novo registro no banco de dados SQLite unindo o texto e o veredito da IA
-        novo_alerta = AnalisarGolpes(
-            texto_suspeito=mensagem, 
-            resultado_ia=nivel.upper(),  # Transforma o status em maiúsculo (GOLPE, SUSPEITO)
-            justificativa=descricao
-        )
-        db.session.add(novo_alerta)
-        db.session.commit()
+        # PASSO 2: VALIDAÇÃO DE SEGURANÇA (SQL/Python Injection)
+        if not input_e_seguro(mensagem):
+            return jsonify({
+                'nivel': 'erro', 
+                'descricao': 'Mensagem rejeitada por conter padrões suspeitos. Tente novamente sem comandos de código.'
+            }), 400
         
-        # Devolve o resultado formatado para o JavaScript atualizar a tela do usuário na hora
-        return jsonify({'nivel': nivel, 'descricao': descricao, 'educacao': educacao})
+        # PASSO 3: TENTA FILTRO LOCAL DE OPERADORAS
+        eh_oficial, justificativa_local = verificacao_das_operadoras_oficial(mensagem)
+        
+        if eh_oficial:
+            print(f" [FILTRO LOCAL] Mensagem detectada como aviso de operadora legítimo")
+            return jsonify({
+                'nivel': 'seguro',  # <-- Força o nível seguro para acender o painel verde
+                'descricao': justificativa_local,
+                'educacao': 'Dica: Para sua total segurança, evite pagar Pix copiados diretamente de SMS. Abra o aplicativo oficial da operadora para confirmar.',
+                'tipo': 'MENSAGEM',
+                'origem': 'filtro_local'
+            })
+
+        # PASSO 4: DETECTA TIPO DE CONTEÚDO (Texto ou Link)
+        eh_link_bool = eh_link(mensagem)
+        tipo_conteudo = "LINK" if eh_link_bool else "MENSAGEM"
+        print(f" [ANÁLISE] Tipo detectado: {tipo_conteudo}")
+        
+        # PASSO 5: CONSTRÓI PROMPT BLINDADO EM XML
+        mensagens_api = construir_prompt_seguro(mensagem, eh_link=eh_link_bool)
+
+        # Obtém localização do IP do usuário de forma segura
+        localizacao = obter_localizacao_ip(ip_real) if ip_real else obter_localizacao_ip()
+        
+        print(f" [IA] Enviando requisição para Llama 3...")
+        
+        try:
+            # PASSO 6: CHAMADA À IA VIA GROQ CLIENT
+            completion = client.chat.completions.create(
+                model="llama-3.3-70b-versatile",
+                messages=mensagens_api,
+                response_format={"type": "json_object"}
+            )
+            
+            # PASSO 7: VALIDA RESPOSTA DA IA
+            resposta_texto = completion.choices[0].message.content
+            resultado_ia = validar_resposta_ia(resposta_texto)
+            
+            if not resultado_ia:
+                return jsonify({
+                    'nivel': 'erro',
+                    'descricao': 'IA retornou resposta em formato inválido. Tente novamente.'
+                }), 500
+            
+            nivel = resultado_ia.get('nivel', 'suspeito')
+            descricao = resultado_ia.get('descricao', 'Análise inconclusiva.')
+            educacao = resultado_ia.get('educacao', '')
+            
+            print(f" [IA] Resposta validada: {nivel.upper()}")
+            
+            # PASSO 8: SALVA NO BANCO COM PREPARED STATEMENT VIA ORM
+            novo_alerta = AnalisarGolpes(
+                texto_suspeito=mensagem,
+                resultado_ia=nivel.upper(),
+                justificativa=descricao,
+                ip_usuario=ip_real or localizacao.get('ip'),
+                cidade=localizacao.get('cidade'),
+                estado=localizacao.get('estado'),
+                pais=localizacao.get('pais')
+            )
+            db.session.add(novo_alerta)
+            db.session.commit()
+            
+            print(f" [BANCO] Salvo com ID: {novo_alerta.id} | {novo_alerta.cidade}, {novo_alerta.estado}")
+            
+            # RETORNA RESULTADO PARA FRONTEND COM ENCODING REVISADO
+            return jsonify({
+                'nivel': nivel,
+                'descricao': descricao,
+                'educacao': educacao,
+                'tipo': tipo_conteudo,
+                'origem': 'ia_groq'
+            })
+            
+        except Exception as e:
+            print(f" [IA] Erro ao chamar Llama 3: {str(e)}")
+            return jsonify({
+                'nivel': 'erro',
+                'descricao': f'Erro ao processar com a IA: {str(e)}'
+            }), 500
         
     except Exception as e:
-        # Se a conexão falhar ou a API cair, evita tela preta e retorna o erro com código HTTP 500
-        return jsonify({'nivel': 'erro', 'descricao': f'Erro ao processar com a IA: {str(e)}'}), 500
+        print(f" [ERRO GERAL] {str(e)}")
+        return jsonify({
+            'nivel': 'erro',
+            'descricao': f'Erro no servidor: {str(e)}'
+        }), 500
 
 # ==============================================================================
 #  ROTA 3: API DE FEED COMUNITÁRIO EM TEMPO REAL (MÉTODO GET)
 # ==============================================================================
-# Rota usada pelo painel para puxar os últimos 10 golpes do banco sem atualizar a página inteira
 @app.route('/alertas', methods=['GET'])
 def alertas():
-    # Consulta no SQLite os 10 últimos registros adicionados pela comunidade
     alertas_list = AnalisarGolpes.query.order_by(AnalisarGolpes.id.desc()).limit(10).all()
     
-    # Transforma a lista de objetos do banco em uma lista JSON compreensível para o front-end
     return jsonify([{
         'id': a.id,
         'resumo': a.texto_suspeito[:50] + '...' if len(a.texto_suspeito) > 50 else a.texto_suspeito,
@@ -132,8 +191,68 @@ def alertas():
     } for a in alertas_list])
 
 # ==============================================================================
+#  ROTA 4: FUNÇÃO E API DE LOCALIZAÇÃO POR IP (MÉTODO GET)
+# ==============================================================================
+def obter_localizacao_ip(ip_usuario=None):
+    if not ip_usuario:
+        # pegara o IP do cabeçalho ou do remote_addr nativo do flask
+        ip_usuario = request.headers.get('X-Forwarded-For', request.remote_addr)
+
+    # se ip_usuario ainda exixtir e for uma string valida
+    if ip_usuario:
+        # Primeira separa por virgula, pega a primeira posição e SÓ DEPOIS aplica o .strig() na strig
+        ip_usuario = ip_usuario.split(',')[0].strip()
+
+    # trava de segurança para testa locais no seu noteboock/computador/celular  
+    if ip_usuario == '127.0.0.1' or not ip_usuario:
+        ip_usuario = '8.8.8.8'  # IP de teste do Google caso rode local
+    
+    try:
+        url = f"http://ip-api.com/json/{ip_usuario}?lang=pt"
+        resposta = requests.get(url, timeout=5).json()
+        
+        if resposta.get('status') == 'success':
+            return {
+                'estado': resposta.get('regionName'),
+                'lat': resposta.get('lat'),
+                'cidade': resposta.get('city'),
+                'lon': resposta.get('lon'),
+                'ip': ip_usuario,
+                'pais': resposta.get('country')
+            }
+    except Exception as e:
+        print(f"[LOCALIZAÇÃO] Erro ao obter localização: {str(e)}")
+    
+    return {
+        'estado': 'Desconhecido',
+        'cidade': 'Desconhecido',
+        'lat': 0,
+        'lon': 0,
+        'ip': ip_usuario,
+        'pais': 'Desconhecido'
+    }
+
+
+@app.route('/localizacao', methods=['GET'])
+def localizacao():
+    dados = obter_localizacao_ip()
+    return jsonify(dados)
+
+
+@app.route('/localizacao-por-ip', methods=['POST'])
+def localizacao_por_ip():
+    data = request.get_json()
+    ip = data.get('ip', '')
+    
+    if not ip:
+        return jsonify({'erro': 'IP não fornecido'}), 400
+    
+    dados = obter_localizacao_ip(ip)
+    return jsonify(dados)
+
+# ==============================================================================
 #  INICIALIZAÇÃO DA APLICAÇÃO
 # ==============================================================================
-# Verifica se o script está sendo executado diretamente e liga o modo de desenvolvimento
 if __name__ == '__main__':
-    app.run(debug=True)
+    # Configurado em False por padrão para segurança na feira da SEC
+    app.run(debug=False)

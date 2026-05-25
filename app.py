@@ -2,7 +2,7 @@
 #  IMPORTAÇÕES DAS BIBLIOTECAS E MÓDULOS
 # ==============================================================================
 # Importa as ferramentas principais do Flask para criar as rotas e gerenciar o site
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, render_template, request, jsonify, make_response
 
 # Importa o carregador de variáveis de ambiente (.env)
 from dotenv import load_dotenv
@@ -62,7 +62,11 @@ def index():
             print(f"[BANCO DE DADOS] Salvo com êxito! {texto_recebido}")
 
     alertas_registrados = AnalisarGolpes.query.order_by(AnalisarGolpes.id.desc()).all()
-    return render_template('index.html', alertas=alertas_registrados)
+
+    #linhas de codigo para que o aviso do ngrpk seja burlado
+    resposta = make_response(render_template('index.html', alertas=alertas_registrados))
+    resposta.headers['ngrok-skip-browser-warning'] = 'true' # <-- Cabeçalho para tentar burlar o aviso do ngrok
+    return resposta
 
 # ==============================================================================
 #  ROTA 2: API DE ANÁLISE COMPLETA VIA IA LLAMA 3 (MÉTODO POST VIA JAVASCRIPT)
@@ -88,18 +92,32 @@ def analisar():
                 'descricao': 'Mensagem rejeitada por conter padrões suspeitos. Tente novamente sem comandos de código.'
             }), 400
         
-        # PASSO 3: TENTA FILTRO LOCAL DE OPERADORAS
-        eh_oficial, justificativa_local = verificacao_das_operadoras_oficial(mensagem)
+        # PASSO 3: TENTA FILTRO LOCAL DE OPERADORAS (REVISADO SEM ERRO DE UNPACK)
+        status_local, resultado_local = verificacao_das_operadoras_oficial(mensagem)
         
-        if eh_oficial:
-            print(f" [FILTRO LOCAL] Mensagem detectada como aviso de operadora legítimo")
+        # Caso A: O filtro local interceptou um golpe claro das operadoras
+        if status_local == "GOLPE_DETECTADO":
+            print("🚨 [FILTRO LOCAL] Golpe de operadora interceptado!")
             return jsonify({
-                'nivel': 'seguro',  # <-- Força o nível seguro para acender o painel verde
-                'descricao': justificativa_local,
+                'nivel': resultado_local['nivel'],
+                'descricao': resultado_local['descricao'],
+                'educacao': resultado_local['educacao'],
+                'tipo': 'LINK',
+                'origem': 'filtro_local'
+            })
+            
+        # Caso B: O filtro local validou que a mensagem é um SMS oficial seguro
+        elif status_local == "OFICIAL":
+            print(" [FILTRO LOCAL] Mensagem detectada como aviso legítimo de operadora")
+            return jsonify({
+                'nivel': 'seguro',
+                'descricao': resultado_local,
                 'educacao': 'Dica: Para sua total segurança, evite pagar Pix copiados diretamente de SMS. Abra o aplicativo oficial da operadora para confirmar.',
                 'tipo': 'MENSAGEM',
                 'origem': 'filtro_local'
             })
+
+        # Caso C: status_local == "CONTINUAR_PARA_IA" - segue para análise com IA
 
         # PASSO 4: DETECTA TIPO DE CONTEÚDO (Texto ou Link)
         eh_link_bool = eh_link(mensagem)
@@ -175,7 +193,7 @@ def analisar():
             'nivel': 'erro',
             'descricao': f'Erro no servidor: {str(e)}'
         }), 500
-
+    
 # ==============================================================================
 #  ROTA 3: API DE FEED COMUNITÁRIO EM TEMPO REAL (MÉTODO GET)
 # ==============================================================================

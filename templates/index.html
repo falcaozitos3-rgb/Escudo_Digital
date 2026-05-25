@@ -27,6 +27,7 @@
             <h2>🔍 Analisar Mensagem ou Link</h2>
             <p style="color:#5a6a8a; margin-bottom:14px; font-size:1rem;">
                 Cole abaixo a mensagem, link ou texto suspeito que você recebeu. Nossa IA irá verificar se é um golpe.
+                ATENÇÃO: Nunca cole mensagens que contenham seus dados pessoais ou senhas. O Escudo Digital é apenas para análise de texto, não armazena nem processa informações sensíveis.
             </p>
             <textarea
                 name="mensagem"
@@ -105,6 +106,7 @@
 
 <footer>
     Escudo Digital &nbsp;·&nbsp; Feira de Ciências da Bahia &nbsp;·&nbsp; Desenvolvido para proteger a comunidade
+    <P> <strong style="color:#17a2b8;">⚠️ AVISO IMPORTANTE:</strong> O Escudo Digital é uma ferramenta de apoio e educação. Ele utiliza inteligência artificial para analisar mensagens, mas não é infalível. Sempre use o bom senso e, em caso de dúvida, consulte um familiar ou profissional de confiança antes de clicar em qualquer link ou fornecer informações pessoais. A segurança online depende de todos nós! Mantenha-se informado e protegido. </P>
 </footer>
 
 <script>
@@ -219,6 +221,7 @@
         document.body.style.fontSize = tamanhoSalvo + 'px';
     }
 
+// CONTROLE DE VOZ PARA LEITURA DO RESULTADO
 function ouvirResposta() {
     const titulo = document.getElementById('resultado-titulo')?.innerText || "";
     const descricao = document.getElementById('resultado-descricao')?.innerText || "";
@@ -231,27 +234,23 @@ function ouvirResposta() {
         return;
     }
     
-    // Para qualquer áudio que esteja tocando ou travado na fila
+    // Cancela qualquer fala anterior para evitar travamentos na fila do celular
     window.speechSynthesis.cancel();
     
     const fala = new SpeechSynthesisUtterance(textoCompleto);
-    fala.lang = 'pt-BR';
+    fala.lang = 'pt-BR'; // Define o idioma padrão (o celular já escolhe a melhor voz pt-BR sozinho)
     
-    // 🛠️ CALIBRAÇÃO DE VELOCIDADE: 
-    // 0.85 força o Firefox a falar em um ritmo mais calmo e humano
+    //  CALIBRAÇÃO DE VELOCIDADE: 
     fala.rate = 0.85; 
     fala.pitch = 1.0; // Tom de voz normal
     
-    // Tenta capturar as vozes do Linux/Firefox em segundo plano
-    const vozes = window.speechSynthesis.getVoices();
-    const vozPT = vozes.find(v => v.lang === 'pt-BR' || v.lang.includes('pt_BR'));
-    if (vozPT) {
-        fala.voice = vozPT;
-    }
+    // TRUQUE PARA O CELULAR ACORDAR NO PRIMEIRO CLIQUE:
+    // Dispara a fala imediatamente sem esperar o carregamento da lista de vozes internas
+    setTimeout(() => {
+        window.speechSynthesis.speak(fala);
+    }, 50); // Um微atraso de 50 milissegundos é o suficiente para o celular liberar o áudio
     
-    // Executa a fala
-    window.speechSynthesis.speak(fala);
-    console.log("[audio] sintetizando voz para! ");
+    console.log("[audio] sintetizando voz com sucesso no primeiro toque!");
     console.log(`velocidade configurada: ${fala.rate}`);
     console.log(`texto enviado para o motor de voz: ${textoCompleto}`);
 }
